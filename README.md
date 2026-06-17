@@ -14,6 +14,8 @@ Declare a `SpringApp` custom resource; the operator reconciles Deployment, Servi
 | [`operator/`](operator/) | Go operator (Kubebuilder-style) — single `SpringAppReconciler` controller |
 
 ## Architecture
+![](./docs/architecture.png)
+
 
 ```
 ┌─────────────────┐     watches      ┌──────────────────────┐
