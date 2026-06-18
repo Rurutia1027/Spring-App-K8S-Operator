@@ -1,0 +1,6 @@
+apiVersion: apps.example.com/v1alpha1
+kind: SpringApp
+metadata:
+  name: notes-service
+  namespace: demo
+spec: {}
