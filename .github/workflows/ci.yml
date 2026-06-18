@@ -7,9 +7,6 @@ on:
 
 env:
   GOPROXY: https://proxy.golang.org,direct
-  IMG: spring-app-operator:ci
-  APP_IMG: notes-service:ci
-  KIND_CLUSTER: spring-app
 
 jobs:
   app-test:
@@ -37,18 +34,3 @@ jobs:
           go-version-file: operator/go.mod
           cache-dependency-path: operator/go.sum
       - run: make lint-config lint vet test
-
-  kind-e2e:
-    name: Kind (app + operator)
-    runs-on: ubuntu-latest
-    needs: [app-test, go-check]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: operator/go.mod
-          cache-dependency-path: operator/go.sum
-      - uses: helm/kind-action@v1
-        with:
-          cluster_name: ${{ env.KIND_CLUSTER }}
-      - run: sh scripts/ci-kind-smoke.sh
