@@ -137,10 +137,6 @@ type SpringAppList struct {
 	Items           []SpringApp `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&SpringApp{}, &SpringAppList{})
-}
-
 func (s *SpringAppSpec) GetReplicas() int32 {
 	if s.Replicas == nil {
 		return 1

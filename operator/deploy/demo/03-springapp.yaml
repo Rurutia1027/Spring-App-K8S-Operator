@@ -3,4 +3,32 @@ kind: SpringApp
 metadata:
   name: notes-service
   namespace: demo
-spec: {}
+spec:
+  image: notes-service:dev
+  replicas: 1
+  service:
+    port: 8080
+    type: ClusterIP
+  database:
+    provider: postgres
+    host: postgres.demo.svc.cluster.local
+    port: 5432
+    name: notesdb
+    credentialsSecretRef:
+      name: notes-db-secret
+      usernameKey: username
+      passwordKey: password
+  runtime:
+    env:
+      SPRING_PROFILES_ACTIVE: k8s
+      APP_LOG_LEVEL: INFO
+    jvmOptions: "-XX:MaxRAMPercentage=75"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  release:
+    paused: false
