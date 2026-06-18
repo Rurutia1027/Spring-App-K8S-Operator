@@ -1,1 +1,14 @@
+# Spring Boot / Maven
+/app/target/
+
+# IDE
 /app/.idea/
+*.iml
+
+# OS
+.DS_Store
+
+# Local env / secrets
+.env
+.env.*
+*.kubeconfig

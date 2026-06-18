@@ -1,0 +1,9 @@
+apiVersion: apps.example.com/v1alpha1
+kind: SpringApp
+metadata:
+  labels:
+    app.kubernetes.io/name: operator
+    app.kubernetes.io/managed-by: kustomize
+  name: springapp-sample
+spec:
+  # TODO(user): Add fields here
