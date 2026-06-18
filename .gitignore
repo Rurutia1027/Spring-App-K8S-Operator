@@ -12,3 +12,5 @@
 .env
 .env.*
 *.kubeconfig
+
+docs/**/*.md
