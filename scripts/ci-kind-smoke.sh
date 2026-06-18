@@ -22,7 +22,7 @@ kind load docker-image "$APP_IMG" --name "$CLUSTER"
 echo "==> install CRD and deploy operator"
 make install
 make deploy IMG="$IMG"
-kubectl wait deployment/controller-manager -n system --for=condition=Available --timeout=180s
+kubectl wait deployment/operator-controller-manager -n operator-system --for=condition=Available --timeout=180s
 
 echo "==> apply demo namespace, postgres, SpringApp CR"
 make demo-up
