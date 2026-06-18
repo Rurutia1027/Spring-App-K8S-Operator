@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: notes-service-smoke
+  namespace: demo
+spec:
+  selector:
+    app: notes-service-smoke
+  ports:
+  - port: 8080
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notes-service-smoke
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notes-service-smoke
+  template:
+    metadata:
+      labels:
+        app: notes-service-smoke
+    spec:
+      containers:
+      - name: app
+        image: notes-service:ci
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:postgresql://postgres.demo.svc.cluster.local:5432/notesdb
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: notes-db-secret
+              key: username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: notes-db-secret
+              key: password
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 5

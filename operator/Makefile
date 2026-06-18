@@ -1,5 +1,7 @@
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= spring-app-operator:dev
+APP_IMG ?= notes-service:dev
+KIND_CLUSTER ?= spring-app
 # YEAR defines the year value used for substituting the YEAR placeholder in the boilerplate header.
 YEAR ?= $(shell date +%Y)
 
@@ -126,6 +128,23 @@ docker-build: ## Build docker image with the manager.
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
+
+.PHONY: docker-build-app
+docker-build-app: ## Build Spring Boot app image.
+	$(CONTAINER_TOOL) build -t ${APP_IMG} ../app
+
+.PHONY: kind-load
+kind-load: docker-build docker-build-app ## Load operator and app images into kind.
+	$(KIND) load docker-image ${IMG} --name $(KIND_CLUSTER)
+	$(KIND) load docker-image ${APP_IMG} --name $(KIND_CLUSTER)
+
+.PHONY: demo-up
+demo-up: ## Apply demo namespace, postgres, and SpringApp CR.
+	kubectl apply -f deploy/demo/
+
+.PHONY: demo-down
+demo-down: ## Remove demo resources.
+	kubectl delete -f deploy/demo/ --ignore-not-found=true
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
