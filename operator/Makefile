@@ -1,7 +1,7 @@
 # Image URL to use all building/pushing image targets
-IMG ?= spring-app-operator:dev
+IMG ?= spring-notes-operator:dev
 APP_IMG ?= notes-service:dev
-KIND_CLUSTER ?= spring-app
+KIND_CLUSTER ?= spring-notes
 # YEAR defines the year value used for substituting the YEAR placeholder in the boilerplate header.
 YEAR ?= $(shell date +%Y)
 
