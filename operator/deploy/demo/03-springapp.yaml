@@ -20,7 +20,6 @@ spec:
       passwordKey: password
   runtime:
     env:
-      SPRING_PROFILES_ACTIVE: k8s
       APP_LOG_LEVEL: INFO
     jvmOptions: "-XX:MaxRAMPercentage=75"
     resources:

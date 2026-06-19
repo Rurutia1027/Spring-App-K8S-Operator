@@ -135,7 +135,7 @@ func (r *SpringAppReconciler) validateDatabaseSecret(ctx context.Context, app *a
 func (r *SpringAppReconciler) reconcileConfigMap(ctx context.Context, app *appsv1alpha1.SpringApp) (string, error) {
 	name := app.Spec.Runtime.ConfigMapName
 	if name == "" {
-		name = app.Name + "-config"
+		return "", nil
 	}
 
 	desired := &corev1.ConfigMap{
@@ -145,7 +145,7 @@ func (r *SpringAppReconciler) reconcileConfigMap(ctx context.Context, app *appsv
 			Labels:    r.labels(app),
 		},
 		Data: map[string]string{
-			"application-k8s.properties": r.configProperties(app),
+			"application-prod.properties": r.configProperties(app),
 		},
 	}
 
@@ -216,17 +216,17 @@ func (r *SpringAppReconciler) reconcileService(ctx context.Context, app *appsv1a
 func (r *SpringAppReconciler) reconcileDeployment(ctx context.Context, app *appsv1alpha1.SpringApp, configChecksum string) (*appsv1.Deployment, error) {
 	replicas := app.Spec.GetReplicas()
 	configMapName := app.Spec.Runtime.ConfigMapName
-	if configMapName == "" {
-		configMapName = app.Name + "-config"
-	}
 
 	podLabels := r.selectorLabels(app)
+	podAnnotations := map[string]string{}
+	if configChecksum != "" {
+		podAnnotations[configChecksumAnno] = configChecksum
+	}
+
 	podTemplate := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: podLabels,
-			Annotations: map[string]string{
-				configChecksumAnno: configChecksum,
-			},
+			Labels:      podLabels,
+			Annotations: podAnnotations,
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{{
@@ -241,20 +241,22 @@ func (r *SpringAppReconciler) reconcileDeployment(ctx context.Context, app *apps
 				LivenessProbe:  httpProbe("/actuator/health/liveness"),
 				ReadinessProbe: httpProbe("/actuator/health/readiness"),
 			}},
-			Volumes: []corev1.Volume{{
-				Name: "config",
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
-					},
-				},
-			}},
 		},
 	}
-	podTemplate.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{{
-		Name:      "config",
-		MountPath: "/config",
-	}}
+	if configMapName != "" {
+		podTemplate.Spec.Volumes = []corev1.Volume{{
+			Name: "config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
+				},
+			},
+		}}
+		podTemplate.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{{
+			Name:      "config",
+			MountPath: "/config",
+		}}
+	}
 	if app.Spec.Runtime.JvmOptions != "" {
 		podTemplate.Spec.Containers[0].Env = append(podTemplate.Spec.Containers[0].Env, corev1.EnvVar{
 			Name:  "JAVA_TOOL_OPTIONS",
@@ -380,8 +382,13 @@ func (r *SpringAppReconciler) updateStatus(
 
 func (r *SpringAppReconciler) buildEnv(app *appsv1alpha1.SpringApp) []corev1.EnvVar {
 	env := []corev1.EnvVar{
-		{Name: "SPRING_CONFIG_ADDITIONAL_LOCATION", Value: "file:/config/"},
-		{Name: "SERVER_PORT", Value: "8080"},
+		{Name: "SPRING_APPLICATION_NAME", Value: app.Name},
+		{Name: "SERVER_PORT", Value: fmt.Sprintf("%d", app.Spec.GetServicePort())},
+	}
+	if app.Spec.Runtime.ConfigMapName != "" {
+		env = append([]corev1.EnvVar{{
+			Name: "SPRING_CONFIG_ADDITIONAL_LOCATION", Value: "file:/config/",
+		}}, env...)
 	}
 	for k, v := range app.Spec.Runtime.Env {
 		env = append(env, corev1.EnvVar{Name: k, Value: v})
@@ -418,13 +425,8 @@ func (r *SpringAppReconciler) buildEnv(app *appsv1alpha1.SpringApp) []corev1.Env
 }
 
 func (r *SpringAppReconciler) configProperties(app *appsv1alpha1.SpringApp) string {
-	profile := "k8s"
-	if v, ok := app.Spec.Runtime.Env["SPRING_PROFILES_ACTIVE"]; ok && v != "" {
-		profile = v
-	}
 	lines := []string{
 		"spring.application.name=" + app.Name,
-		"spring.profiles.active=" + profile,
 		"spring.jpa.hibernate.ddl-auto=update",
 	}
 	if level, ok := app.Spec.Runtime.Env["APP_LOG_LEVEL"]; ok {

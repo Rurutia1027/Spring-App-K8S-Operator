@@ -52,7 +52,7 @@ var _ = Describe("SpringApp Controller", func() {
 					},
 				},
 				Runtime: appsv1alpha1.RuntimeSpec{
-					Env: map[string]string{"SPRING_PROFILES_ACTIVE": "k8s"},
+					Env: map[string]string{"APP_LOG_LEVEL": "INFO"},
 				},
 			},
 		}
@@ -72,7 +72,7 @@ var _ = Describe("SpringApp Controller", func() {
 		}
 	})
 
-	It("creates deployment, service, and configmap", func() {
+	It("creates deployment and service with datasource env", func() {
 		reconciler := &SpringAppReconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 		for range 3 {
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: typeNamespacedName})
@@ -81,12 +81,17 @@ var _ = Describe("SpringApp Controller", func() {
 
 		deploy := &appsv1.Deployment{}
 		Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
+		Expect(deploy.Spec.Template.Spec.Volumes).To(BeEmpty())
+
+		envNames := map[string]string{}
+		for _, e := range deploy.Spec.Template.Spec.Containers[0].Env {
+			envNames[e.Name] = e.Value
+		}
+		Expect(envNames).To(HaveKeyWithValue("SPRING_DATASOURCE_URL",
+			"jdbc:postgresql://postgres.demo.svc.cluster.local:5432/notesdb"))
 
 		svc := &corev1.Service{}
 		Expect(k8sClient.Get(ctx, typeNamespacedName, svc)).To(Succeed())
-
-		cm := &corev1.ConfigMap{}
-		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: resourceName + "-config", Namespace: namespace}, cm)).To(Succeed())
 
 		app := &appsv1alpha1.SpringApp{}
 		Expect(k8sClient.Get(ctx, typeNamespacedName, app)).To(Succeed())
