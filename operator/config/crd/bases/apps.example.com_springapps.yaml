@@ -65,6 +65,8 @@ spec:
                       usernameKey:
                         type: string
                     type: object
+                  host:
+                    type: string
                   name:
                     type: string
                   port:
@@ -73,6 +75,11 @@ spec:
                     maximum: 65535
                     minimum: 1
                     type: integer
+                  provider:
+                    default: postgres
+                    enum:
+                    - postgres
+                    type: string
                 type: object
               image:
                 description: Image is the Spring Boot container image.
