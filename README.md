@@ -1,4 +1,4 @@
-# Spring App K8S Operator
+# Spring App K8S Operator | [![CI](https://github.com/Rurutia1027/Spring-App-K8S-Operator/actions/workflows/ci.yml/badge.svg)](https://github.com/Rurutia1027/Spring-App-K8S-Operator/actions/workflows/ci.yml)
 
 A hands-on reference for building a **Kubernetes customized operator** around a minimal **Spring Boot** microservice (PostgreSQL CRUD as the demo workload).
 
