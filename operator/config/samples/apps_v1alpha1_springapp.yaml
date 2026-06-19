@@ -6,4 +6,18 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: springapp-sample
 spec:
-  # TODO(user): Add fields here
+  image: notes-service:dev
+  replicas: 1
+  service:
+    port: 8080
+    type: ClusterIP
+  database:
+    provider: postgres
+    host: postgres.demo.svc.cluster.local
+    port: 5432
+    name: notesdb
+    credentialsSecretRef:
+      name: notes-db-secret
+  runtime:
+    env:
+      APP_LOG_LEVEL: INFO
