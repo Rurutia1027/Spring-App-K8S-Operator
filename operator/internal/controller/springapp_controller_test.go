@@ -1,17 +1,5 @@
 /*
 Copyright 2026.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
 */
 
 package controller
@@ -21,67 +9,87 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	appsv1alpha1 "github.com/Rurutia1027/Spring-App-K8S-Operator/operator/api/v1alpha1"
 )
 
 var _ = Describe("SpringApp Controller", func() {
-	Context("When reconciling a resource", func() {
-		const (
-			resourceName      = "test-resource"
-			resourceNamespace = "default"
-		)
+	const (
+		resourceName = "test-notes"
+		namespace    = "default"
+		dbSecretName = "notes-db-secret"
+	)
 
-		ctx := context.Background()
+	ctx := context.Background()
+	typeNamespacedName := types.NamespacedName{Name: resourceName, Namespace: namespace}
 
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: resourceNamespace,
+	replicas := int32(1)
+
+	BeforeEach(func() {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: dbSecretName, Namespace: namespace},
+			StringData: map[string]string{"username": "notes", "password": "notes"},
 		}
-		springapp := &appsv1alpha1.SpringApp{}
+		_ = k8sClient.Create(ctx, secret)
 
-		BeforeEach(func() {
-			By("creating the custom resource for the Kind SpringApp")
-			err := k8sClient.Get(ctx, typeNamespacedName, springapp)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &appsv1alpha1.SpringApp{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: resourceNamespace,
+		app := &appsv1alpha1.SpringApp{
+			ObjectMeta: metav1.ObjectMeta{Name: resourceName, Namespace: namespace},
+			Spec: appsv1alpha1.SpringAppSpec{
+				Image:    "notes-service:dev",
+				Replicas: &replicas,
+				Database: appsv1alpha1.DatabaseSpec{
+					Provider: "postgres",
+					Host:     "postgres.demo.svc.cluster.local",
+					Port:     5432,
+					Name:     "notesdb",
+					CredentialsSecretRef: appsv1alpha1.SecretKeyRef{
+						Name: dbSecretName,
 					},
-					// TODO(user): Specify other spec details if needed.
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
-			}
-		})
+				},
+				Runtime: appsv1alpha1.RuntimeSpec{
+					Env: map[string]string{"SPRING_PROFILES_ACTIVE": "k8s"},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, app)).To(Succeed())
+	})
 
-		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &appsv1alpha1.SpringApp{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
+	AfterEach(func() {
+		app := &appsv1alpha1.SpringApp{}
+		if err := k8sClient.Get(ctx, typeNamespacedName, app); err == nil {
+			app.Finalizers = nil
+			_ = k8sClient.Update(ctx, app)
+			_ = k8sClient.Delete(ctx, app)
+		}
+		secret := &corev1.Secret{}
+		if err := k8sClient.Get(ctx, types.NamespacedName{Name: dbSecretName, Namespace: namespace}, secret); err == nil {
+			_ = k8sClient.Delete(ctx, secret)
+		}
+	})
+
+	It("creates deployment, service, and configmap", func() {
+		reconciler := &SpringAppReconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+		for range 3 {
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: typeNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
+		}
 
-			By("Cleanup the specific resource instance SpringApp")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
-			controllerReconciler := &SpringAppReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
+		deploy := &appsv1.Deployment{}
+		Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
 
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
-		})
+		svc := &corev1.Service{}
+		Expect(k8sClient.Get(ctx, typeNamespacedName, svc)).To(Succeed())
+
+		cm := &corev1.ConfigMap{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: resourceName + "-config", Namespace: namespace}, cm)).To(Succeed())
+
+		app := &appsv1alpha1.SpringApp{}
+		Expect(k8sClient.Get(ctx, typeNamespacedName, app)).To(Succeed())
+		Expect(app.Finalizers).To(ContainElement(finalizerName))
 	})
 })

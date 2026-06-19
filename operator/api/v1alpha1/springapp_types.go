@@ -65,6 +65,11 @@ type ServiceSpec struct {
 }
 
 type DatabaseSpec struct {
+	// +kubebuilder:validation:Enum=postgres
+	// +kubebuilder:default=postgres
+	Provider string `json:"provider,omitempty"`
+
+	Host string `json:"host,omitempty"`
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=5432
