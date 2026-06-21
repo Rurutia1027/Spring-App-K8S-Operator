@@ -130,7 +130,8 @@ docker-push: ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
 
 .PHONY: docker-build-app
-docker-build-app: ## Build Spring Boot app image.
+docker-build-app: ## Build Spring Boot app image (local mvn package, then docker).
+	mvn -q -B -f ../app/pom.xml package -DskipTests
 	$(CONTAINER_TOOL) build -t ${APP_IMG} ../app
 
 .PHONY: kind-load
@@ -139,7 +140,7 @@ kind-load: docker-build docker-build-app ## Load operator and app images into ki
 	$(KIND) load docker-image ${APP_IMG} --name $(KIND_CLUSTER)
 
 .PHONY: demo-up
-demo-up: ## Apply demo namespace, postgres, and SpringApp CR.
+demo-up: install ## Apply demo namespace, postgres, and SpringApp CR (requires CRD from install).
 	kubectl apply -f deploy/demo/
 
 .PHONY: demo-down
